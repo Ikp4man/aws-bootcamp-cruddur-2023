@@ -2,7 +2,7 @@
 
 ## Required Tasks
 ### Recreate the Conceptual Diagram
-
+![Cruddur conceptual napkin design](assets/week0/cruddur-conceptual-diagram.jpg)
 ### Recreate the Logical Architectural Diagram
 ![Cruddur logical architectural diagram](assets/week0/Cruddur-logical-architecture.png)  
 Here is a [Link to the diagram](https://lucid.app/lucidchart/b2f80788-9cd4-4d07-9394-731387c4017a/edit?viewport_loc=218%2C418%2C952%2C415%2C0_0&invitationId=inv_998c0356-185f-4d85-b6d1-ee5e853490de)  
