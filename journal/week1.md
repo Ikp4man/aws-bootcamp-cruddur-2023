@@ -193,3 +193,140 @@ I added the following to the gitpod.yml file to automatically install npm and po
       sudo apt update
       sudo apt install -y postgresql-client-13 libpq-dev
 ```
+
+## Homework Challenges
+### I did the homework challenges outside Gitpod/Codespace. I launched an EC2 instance on AWS and installed docker with the following commands:
+```bash
+    sudo apt-get update
+    sudo apt-get -y install apt-transport-https ca-certificates curl gnupg lsb-release
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    sudo apt-get update
+    sudo apt-get -y install docker-ce docker-ce-cli containerd.io
+    sudo usermod -aG docker ubuntu
+```
+### I used multi-stage build in the Dockerfile for the frontend and the backend.
+#### Frontend:
+```bash
+FROM node:16.18 AS builder
+
+COPY . /frontend-react-js
+
+WORKDIR /frontend-react-js
+
+RUN npm install && npm run build
+
+FROM node:16.18-alpine AS runtime
+
+COPY --from=builder /frontend-react-js /frontend-react-js
+
+WORKDIR /frontend-react-js
+
+RUN chmod +x docker/npm-start.sh
+
+ENV PORT=3000
+
+EXPOSE ${PORT}
+
+CMD ["./docker/npm-start.sh"]
+```
+From the code above, I also ran the Dockerfile CMD as an external script. I created a docker directory in the frontend-react-js directory and created the npm-start.sh script in the directory.
+
+```bash
+#!/bin/sh
+
+npm start
+```
+
+I used /bin/sh because alpine linux uses sh shell instead of bash shell
+
+
+I also tried another multi-stage build with an nginx image
+
+```bash
+FROM node:16.18 AS builder
+
+COPY . /frontend-react-js
+
+WORKDIR /frontend-react-js
+
+RUN npm install
+
+RUN npm run build
+
+FROM nginx:stable-alpine
+
+ENV PORT=80
+
+WORKDIR /usr/share/nginx/html
+
+RUN rm -f ./*
+
+COPY --from=builder /frontend-react-js/build .
+
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE ${PORT}
+```
+Using multi-stage build drastically reduced the size of the docker images
+![frontend multistage](assets/week1/frontend-multistage1.jpg)
+
+#### Backend:
+```bash
+FROM python:3.10-slim-buster AS builder
+
+WORKDIR /backend-flask
+
+COPY requirements.txt requirements.txt
+
+RUN pip3 install --user -r requirements.txt
+
+FROM python:3.10-slim-buster AS runtime
+
+WORKDIR /backend-flask
+
+COPY --from=builder /root/.local /root/.local
+
+COPY . .
+
+RUN chmod +x docker/flask-run.sh
+
+ENV FLASK_ENV=development \
+    PATH=/root/.local/bin:$PATH
+
+EXPOSE ${PORT}
+
+CMD [ "./docker/flask-run.sh" ]
+```
+From the code above, I also ran the Dockerfile CMD as an external script. I created a docker directory in the backend-flask directory and created the flask-run.sh script in the directory.
+```bash
+#!/bin/bash
+
+python3 -m flask run --host=0.0.0.0 --port=4567
+```
+The size of the docker image was reduced, although not as significantly as the frontend image
+![backend multistage](assets/week1/backend-multistage.jpg)
+
+### I pushed the frontend image and backend image created to docker hub
+- First I had to tag the existing image with my dockerhub username so docker knows which repository to push it to
+```bash
+docker tag f6595e7adc7c:6.0 sayaligbe/frontend:1.0
+docker tag 17d3267b9aa8:2.0 sayaligbe/backend-flask:1.0
+```
+- I logged into my docker hub account by running `docker login` and inputting my username and password in the prompts
+- I pushed the images to docker hub
+```bash
+docker push sayaligbe/frontend:1.0
+docker push sayaligbe/backend-flask:1.0
+```
+![docker hub frontend](assets/week1/dockerhub-frontend.jpg)
+
+![docker hub backend](assets/week1/dockerhub-backend.jpg)
+
+### I ran `docker compose up` in the EC2 instance
+- The EC2 instance security group had port 3000 and 4567 open
+![EC2 home page](assets/week1/ec2-app.jpg)
+
+![EC2 notification page](assets/week1/ec2-app-notif.jpg)
+
+### I ran healthchecks in the docker compose file in the gitpod env
