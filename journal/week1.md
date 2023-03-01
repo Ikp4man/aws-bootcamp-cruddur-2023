@@ -330,3 +330,11 @@ docker push sayaligbe/backend-flask:1.0
 ![EC2 notification page](assets/week1/ec2-app-notif.jpg)
 
 ### I ran healthchecks in the docker compose file in the gitpod env
+- To do this, i included a command to install curl in each Dockerfile. See it [here](https://github.com/Sarahligbe/aws-bootcamp-cruddur-2023/commit/208bf8fb36860621ae58aada28941b25372c4837)
+- I added the healthcheck to the docker-compose.yml file. See it [here](https://github.com/Sarahligbe/aws-bootcamp-cruddur-2023/commit/208bf8fb36860621ae58aada28941b25372c4837)
+![healthchecks](assests/week1/healthcheck.jpg)
+
+### I researched docker best practices and implemented a few
+- I added a .dockerignore file in the backend and frontend directories which is used to specify files and directories that should be excluded from the Docker build context when building a Docker image.
+-  I combined RUN apt-get update with apt-get install in the same RUN statement
+-  I used multi-stage builds in my EC2 instances
