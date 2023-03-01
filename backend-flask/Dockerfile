@@ -4,7 +4,8 @@ WORKDIR /backend-flask
 
 COPY requirements.txt requirements.txt
 
-RUN pip3 install -r requirements.txt
+#installs the requirements.txt, updates the repository and installs curl (to be used for the healthchecks)
+RUN pip3 install -r requirements.txt && apt-get update && apt-get install -y curl
 
 COPY . .
 

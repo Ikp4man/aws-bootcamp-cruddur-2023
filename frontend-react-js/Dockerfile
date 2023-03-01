@@ -6,7 +6,7 @@ COPY . /frontend-react-js
 
 WORKDIR /frontend-react-js
 
-RUN npm install
+RUN npm install && apt-get update && apt-get install -y curl
 
 EXPOSE ${PORT}
 
