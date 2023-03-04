@@ -56,6 +56,79 @@ OTEL_SERVICE_NAME: "backend-flask"
 ```
 ${HONEYCOMB_API_KEY} references the API key environment variable that was exported earlier.
 - I added spans and attributes. See it [here]()  
-
-A span is a unit of work in a distributed system that represents a single operation or transaction. Spans capture information such as the start time, duration, and outcome of an operation, as well as any events or activities that occurred during the operation. By collecting spans, you can gain visibility into the flow of requests through your system and identify bottlenecks or issues that may be affecting performance.  
+A span is a unit of work in a distributed system that represents a single operation or transaction. Spans capture information such as the start time, duration, and outcome of an operation, as well as any events or activities that occurred during the operation. By collecting spans, you can gain visibility into the flow of requests through your system and identify bottlenecks or issues that may be affecting performance.
 Attributes are key-value pairs that provide additional context for spans and events. Attributes can be used to capture metadata about the application, such as the version number, hostname, or user ID, as well as specific details about a span, such as the name of the function or the input parameters. By adding attributes to your data, you can better understand the context in which events occurred and make more informed decisions based on the data.
+
+
+### Instrument AWS X-Ray
+AWS X-Ray is a service provided by AWS that allows developers to analyze and debug distributed applications, such as microservices and serverless applications, running on the AWS cloud platform.  
+I carried out the following to instrument X-Ray:
+- I added the following to the `requirements.txt` file
+```bash
+aws-xray-sdk
+```
+I changed directory to `backend-flask` and ran `pip install -r requirements.txt` to install the aws xray sdk
+- I added the following to the `app.py` file
+```bash
+from aws_xray_sdk.core import xray_recorder
+from aws_xray_sdk.ext.flask.middleware import XRayMiddleware
+
+xray_url = os.getenv("AWS_XRAY_URL")
+xray_recorder.configure(service='backend-flask', dynamic_naming=xray_url)
+XRayMiddleware(app, xray_recorder)
+```
+- I created an `xray.json` file in the `aws/json/` directory and added:
+```bash
+{
+  "SamplingRule": {
+      "RuleName": "Cruddur",
+      "ResourceARN": "*",
+      "Priority": 9000,
+      "FixedRate": 0.1,
+      "ReservoirSize": 5,
+      "ServiceName": "Cruddur",
+      "ServiceType": "*",
+      "Host": "*",
+      "HTTPMethod": "*",
+      "URLPath": "*",
+      "Version": 1
+  }
+}
+```
+- I ran this command to create an X-Ray group:
+```bash
+aws xray create-group \
+   --group-name "Cruddur" \
+   --filter-expression "service(\"backend-flask\")"
+```
+- I ran the following command to create a new sampling rule in AWS X-Ray from the `xray.json`:
+```bash
+aws xray create-sampling-rule --cli-input-json file://aws/json/xray.json
+```
+- I added the following to the `docker-compose.yml` file to create the xray daemon
+```bash
+  xray-daemon:
+    image: "amazon/aws-xray-daemon"
+    environment:
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+      AWS_REGION: "us-east-1"
+    command:
+      - "xray -o -b xray-daemon:2000"
+    ports:
+      - 2000:2000/udp
+```
+The AWS X-Ray daemon is a service that collects trace data from applications, organizes that data into traces, and sends those traces to the X-Ray service for analysis and visualization. The X-Ray daemon is required because it provides a centralized mechanism for collecting and sending trace data. Without the daemon, applications would need to send trace data directly to the X-Ray service, which could be inefficient and difficult to manage in a distributed system with multiple services running on multiple hosts.  
+- I added these two env vars to our backend-flask in our `docker-compose.yml` file
+```bash
+      AWS_XRAY_URL: "*4567-${GITPOD_WORKSPACE_ID}.${GITPOD_WORKSPACE_CLUSTER_HOST}*"
+      AWS_XRAY_DAEMON_ADDRESS: "xray-daemon:2000"
+```
+By setting these environment variables, the service or application running in the container can use the AWS X-Ray SDK to generate trace data and send it to the X-Ray daemon for collection and analysis.
+- Finally, I ran `docker compose up -d --build` and visited the `api/activities/home` endpoint to generate trace segments in AWS X-Ray
+
+### Instrument AWS X-Ray subsegments
+A subsegment is a part of a trace segment that represents a segment of work performed by a downstream service in response to a request from the parent service.
+See it in this [commit]().  
+
+
