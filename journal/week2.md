@@ -125,10 +125,69 @@ The AWS X-Ray daemon is a service that collects trace data from applications, or
       AWS_XRAY_DAEMON_ADDRESS: "xray-daemon:2000"
 ```
 By setting these environment variables, the service or application running in the container can use the AWS X-Ray SDK to generate trace data and send it to the X-Ray daemon for collection and analysis.
-- Finally, I ran `docker compose up -d --build` and visited the `api/activities/home` endpoint to generate trace segments in AWS X-Ray
+- I ran `docker compose up -d --build` and visited the `api/activities/home` endpoint to generate trace segments in AWS X-Ray
+- After I ran the docker compose command, I noticed I wasn't getting any traces in X-Ray, I viewed the logs and realized that in the docker-compose.yml file, I had explicitly defined a custom network that your my will be connected to instead of the default network docker compose creates for the containers, hence the backend container could not connect to the xray daemon container so traces were not collected and sent to the AWS X-Ray service. I fixed the issue by adding
+```bash
+    networks:
+      - internal-network
+```
+to the xray-daemon container in the `docker-compose.yml` file.
 
 ### Instrument AWS X-Ray subsegments
 A subsegment is a part of a trace segment that represents a segment of work performed by a downstream service in response to a request from the parent service.
 See it in this [commit]().  
+
+### Configure custom logger to send to CloudWatch Logs
+CloudWatch Logs allows you to store, monitor, and analyze log files from various systems, applications, and services.  
+
+To configure the custom logger I did the following:
+- I added `watchtower` to the `requirements.txt` file and installed it with `pip install -r requirements.txt`
+- I added the code below to `app.py`
+```bash
+import watchtower
+import logging
+from time import strftime
+```
+```bash
+# Configuring Logger to Use CloudWatch
+LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(logging.DEBUG)
+console_handler = logging.StreamHandler()
+cw_handler = watchtower.CloudWatchLogHandler(log_group='cruddur')
+LOGGER.addHandler(console_handler)
+LOGGER.addHandler(cw_handler)
+LOGGER.info("test info")
+```
+```bash
+@app.after_request
+def after_request(response):
+    timestamp = strftime('[%Y-%b-%d %H:%M]')
+    LOGGER.error('%s %s %s %s %s %s', timestamp, request.remote_addr, request.method, request.scheme, request.full_path, response.status)
+    return response
+```
+- I added the following to `home_activities.py`
+```bash
+Logger.info("HomeActivities")
+```
+And initialized it by adding `Logger` to `def run():` in `home_activities.py`, as in:
+```bash
+def run(Logger):
+```
+I also added `Logger= LOGGER` in `app.py` 
+```bash
+@app.route("/api/activities/home", methods=['GET'])
+@xray_recorder.capture('activities_home')
+def data_home():
+  data = HomeActivities.run(Logger= LOGGER) #added it to this line
+  return data, 200
+```
+- I added the following to the docker-compose.yml file to set environment variables
+```bash
+      AWS_DEFAULT_REGION: "${AWS_DEFAULT_REGION}"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+```
+- Finally, I ran `docker-compose up -d --build` 
+
 
 
