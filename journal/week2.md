@@ -59,6 +59,8 @@ ${HONEYCOMB_API_KEY} references the API key environment variable that was export
 A span is a unit of work in a distributed system that represents a single operation or transaction. Spans capture information such as the start time, duration, and outcome of an operation, as well as any events or activities that occurred during the operation. By collecting spans, you can gain visibility into the flow of requests through your system and identify bottlenecks or issues that may be affecting performance.
 Attributes are key-value pairs that provide additional context for spans and events. Attributes can be used to capture metadata about the application, such as the version number, hostname, or user ID, as well as specific details about a span, such as the name of the function or the input parameters. By adding attributes to your data, you can better understand the context in which events occurred and make more informed decisions based on the data.
 
+![honeycomb](assets/week2/honeycomb.jpg)
+
 
 ### Instrument AWS X-Ray
 AWS X-Ray is a service provided by AWS that allows developers to analyze and debug distributed applications, such as microservices and serverless applications, running on the AWS cloud platform.  
@@ -101,10 +103,14 @@ aws xray create-group \
    --group-name "Cruddur" \
    --filter-expression "service(\"backend-flask\")"
 ```
+![xray cli](assets/week2/xray-cli.jpg)
+![xray gui](assets/week2/xray-gui.jpg)
 - I ran the following command to create a new sampling rule in AWS X-Ray from the `xray.json`:
 ```bash
 aws xray create-sampling-rule --cli-input-json file://aws/json/xray.json
 ```
+![xray sampling rule cli](assets/week2/xray-sampling-rule.jpg)
+![xray sampling rule gui](assets/week2/xray-sampling-gui.jpg)
 - I added the following to the `docker-compose.yml` file to create the xray daemon
 ```bash
   xray-daemon:
@@ -133,9 +139,12 @@ By setting these environment variables, the service or application running in th
 ```
 to the xray-daemon container in the `docker-compose.yml` file.
 
+
 ### Instrument AWS X-Ray subsegments
 A subsegment is a part of a trace segment that represents a segment of work performed by a downstream service in response to a request from the parent service.
 See it in this [commit]().  
+
+![xray subsegment](assets/week2/xray-subsegment.jpg)
 
 ### Configure custom logger to send to CloudWatch Logs
 CloudWatch Logs allows you to store, monitor, and analyze log files from various systems, applications, and services.  
@@ -156,7 +165,7 @@ console_handler = logging.StreamHandler()
 cw_handler = watchtower.CloudWatchLogHandler(log_group='cruddur')
 LOGGER.addHandler(console_handler)
 LOGGER.addHandler(cw_handler)
-LOGGER.info("test info")
+LOGGER.info("test log")
 ```
 ```bash
 @app.after_request
@@ -188,6 +197,66 @@ def data_home():
       AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
 ```
 - Finally, I ran `docker-compose up -d --build` 
+![cloudwatch](assets/week2/cloudwatch1.jpg)
+![cloudwatch](assets/week2/cloudwatch2.jpg)
+
+### Integrate Rollbar and capture an error
+Rollbar is an error monitoring and debugging tool for software applications. It provides a platform for developers to track and analyze errors and exceptions that occur in their applications, and provides tools for debugging and resolving those errors.  
+
+To integrate rollbar, I did the following:
+- I logged into [rollbar.com](rollbar.com) and created a new project called `Cruddur`
+- I added the following to my `requirements.txt` file
+```bash
+blinker
+rollbar
+``` 
+and installed them using 
+```bash
+pip install -r requirements.txt
+```
+- I set my rollbar access token and persisted it in my gitpod environment
+```bash
+export ROLLBAR_ACCESS_TOKEN="myaccesstoken"
+gp env ROLLBAR_ACCESS_TOKEN="myaccesstoken"
+```
+- I added the following in my `docker-compose.yml` file:
+```bash
+ROLLBAR_ACCESS_TOKEN: "${ROLLBAR_ACCESS_TOKEN}"
+```
+- I added the following to my `app.py` file:
+```bash
+import rollbar
+import rollbar.contrib.flask
+from flask import got_request_exception
+```
+```bash
+rollbar_access_token = os.getenv('ROLLBAR_ACCESS_TOKEN')
+@app.before_first_request
+def init_rollbar():
+    """init rollbar module"""
+    rollbar.init(
+        # access token
+        rollbar_access_token,
+        # environment name
+        'production',
+        # server root directory, makes tracebacks prettier
+        root=os.path.dirname(os.path.realpath(__file__)),
+        # flask already sets up logging
+        allow_logging_basic_config=False)
+
+    # send exceptions from `app` to rollbar, using flask's signal system.
+    got_request_exception.connect(rollbar.contrib.flask.report_exception, app)
+```
+and the endpoint to test rollbar
+```bash
+@app.route('/rollbar/test')
+def rollbar_test():
+    rollbar.report_message('Hello World!', 'warning')
+    return "Hello World!"
+```
+- I ran `docker-compose up -d --build`
+Visiting the /rollbar/test endpoint created items in rollbar. An item is a single instance of an error or message that has been logged by your application.
+
 
 
 
