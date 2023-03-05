@@ -139,6 +139,7 @@ By setting these environment variables, the service or application running in th
 ```
 to the xray-daemon container in the `docker-compose.yml` file.
 
+![xray traces](assets/week2/xray-traces.jpg)
 
 ### Instrument AWS X-Ray subsegments
 A subsegment is a part of a trace segment that represents a segment of work performed by a downstream service in response to a request from the parent service.
@@ -256,6 +257,8 @@ def rollbar_test():
 ```
 - I ran `docker-compose up -d --build`
 Visiting the /rollbar/test endpoint created items in rollbar. An item is a single instance of an error or message that has been logged by your application.
+
+![rollbar items](assets/week2/rollbar2.jpg)
 
 
 
