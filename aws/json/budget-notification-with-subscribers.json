@@ -14,3 +14,55 @@
         ]
     }
   ]
+
+{
+  "AWSTemplateFormatVersion": "2023-05-02",
+  "Resources": {
+    "BudgetNotification": {
+      "Type": "AWS::Budgets::Budget",
+      "Properties": {
+        "Budget": {
+          "BudgetLimit": {
+            "Amount": 100,
+            "Unit": "USD"
+          },
+          "BudgetName": "Sample Budget",
+          "BudgetType": "COST",
+          "CostFilters": {},
+          "CostTypes": {
+            "IncludeCredit": false,
+            "IncludeDiscount": false,
+            "IncludeOtherSubscription": false,
+            "IncludeRecurring": true,
+            "IncludeRefund": false,
+            "IncludeSubscription": true,
+            "IncludeSupport": false,
+            "IncludeTax": false,
+            "IncludeUpfront": false,
+            "UseAmortized": false,
+            "UseBlended": false
+          },
+          "TimePeriod": {
+            "End": "2023-06-01T00:00:00Z",
+            "Start": "2023-05-01T00:00:00Z"
+          }
+        },
+        "NotificationsWithSubscribers": [
+          {
+            "Notification": {
+              "ComparisonOperator": "GREATER_THAN",
+              "NotificationType": "ACTUAL",
+              "Threshold": 90
+            },
+            "Subscribers": [
+              {
+                "SubscriptionType": "EMAIL",
+                "Address": "example@example.com"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
